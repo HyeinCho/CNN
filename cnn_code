@@ -1,0 +1,231 @@
+ clear all
+
+% 
+
+% %%%%%%%%%% Load data%%%%%%%%%%%%
+
+ unzip('/Users/Hyein Cho/Desktop/600.zip');
+
+% imds= imageDatastore('MerchData',...
+
+% %     'IncludeSubfolders',true,...
+
+% %     'LabelSource','foldernames');
+
+% 
+
+imdsTrain = imageDatastore('train','IncludeSubfolders',true,'LabelSource','foldernames');
+
+imdsTest = imageDatastore('test','IncludeSubfolders',true,'LabelSource','foldernames');
+
+ 
+
+% [imdsTrain,imdsTest] = splitEachLabel(imds,0.7,'randomized');
+
+numTrainImages = numel(imdsTrain.Labels);
+
+idx = randperm(numTrainImages,16);
+
+figure;
+
+for i = 1:16
+
+    subplot(4,4,i)
+
+    I = readimage(imdsTrain,idx(i));
+
+    imshow(I)
+
+end
+
+ 
+
+%%%%%%%%%%%%% Load pratrained data%%%%%%%%%%%%%
+
+%net = googlenet;
+
+% net = alexnet;
+
+ net = resnet50;
+
+ net.Layers
+
+inputSize = net.Layers(1).InputSize
+
+ 
+
+ 
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%extract image features%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%%%%To automatically resize the training and test images before they are input to the network ,create augmented image datastores, 
+
+%%%%specify the desired image size, and use these datatstores as input arguments to activations.
+
+ 
+
+augimdsTrain = augmentedImageDatastore(inputSize(1:2),imdsTrain);
+
+augimdsTest = augmentedImageDatastore(inputSize(1:2),imdsTest);
+
+ 
+
+ 
+
+% layer = 'fc7'; %- alexnet
+
+%layer = 'loss3-classifier';  %googlenet-0.72
+
+% layer = 'pool5-7x7_s1'; %googlenet-0.72-not good
+
+ 
+
+%layer = 'inception_5b-pool';  %googlenet-0.78-good
+
+layer = 'avg_pool'; %resnet50-0.80-good
+
+ 
+
+% layer = 'fc1000'; %resnet50-
+
+ 
+
+%%%%googlenet-featuresTrain1 resnet-featuresTrain2%%%%
+
+ featuresTrain = activations(net,augimdsTrain,layer,'OutputAs','rows'); 
+
+ featuresTest = activations(net,augimdsTest,layer,'OutputAs','rows');
+
+ 
+
+%%%%googlenet-featuresTrain1 resnet-featuresTrain2
+
+ 
+
+%  featuresTrain = [featuresTrain1 featuresTrain2];
+
+%  featuresTest = [featuresTest1 featuresTest2];
+
+ 
+
+%%%%Extract the class labels from the training and test data
+
+ 
+
+YTrain = imdsTrain.Labels;
+
+YTest = imdsTest.Labels;
+
+ 
+
+ 
+
+%%%Fit Image Classifier%%%
+
+ 
+
+% classifier = fitcecoc(featuresTrain,YTrain);
+
+ 
+
+%%%Classifier Test Images%%%
+
+ 
+
+%Classifer1
+
+% YPred = predict(classifier,featuresTest);
+
+% classifier = fitcecoc(featuresTrain,YTrain);
+
+% idx = [1 5 10 15];
+
+% figure
+
+% for i = 1:numel(idx)
+
+%     subplot(2,2,i)
+
+%     I = readimage(imdsTest,idx(i));
+
+%     label = YPred(idx(i));
+
+%     imshow(I)
+
+%     title(char(label))
+
+% end
+
+ 
+
+ 
+
+% Classifier 2
+
+% Lambda = logspace(-6,-0.5,11);
+
+% featuresTrain=featuresTrain';
+
+% classifier = fitclinear(featuresTrain,YTrain,'ObservationsIn','columns', ...
+
+%     'Learner','logistic','Solver','sparsa','Regularization','lasso',...
+
+%     'Lambda',Lambda,'GradientTolerance',1e-8);
+
+% YPred = predict(classifier,featuresTest);
+
+% %%%%%%%%%%%
+
+% for k = 1:size(YPred,1)
+
+%     a = numel(find(double(YPred(k,:))> 1));
+
+%     if a > round(length(Lambda)/2)-1
+
+%         ourPred(k,1) = 1;
+
+%     else
+
+%         ourPred(k,1) = 0;
+
+%     end
+
+% end   
+
+% %%%%%%%%%%%
+
+ 
+
+%%%%Classifier3
+
+% classifier = fitcsvm(featuresTrain,YTrain,'Standardize',true, ...
+
+% 'KernelFunction','linear','KernelScale','auto','OutlierFraction',0.05);
+
+ 
+
+%%%%randomforest(배깅분류)
+
+% classifier = TreeBagger(50,featuresTrain,YTrain,'OOBPrediction','On',...
+
+%     'Method','classification')
+
+% YPred = predict(classifier,featuresTest);
+
+ 
+
+%%%fitdiscr
+
+%classifier = fitcdiscr(meas,species,'OptimizeHyperparameters','auto',...
+
+%     'HyperparameterOptimizationOptions',...
+
+%     struct('AcquisitionFunctionName','expected-improvement-plus'));
+
+ 
+
+%%%calculate the classification accuracy on the test set%%%
+
+% accuracy = mean(categorical(ourPred)==YTest) % for classifier2
+
+accuracy = mean(YPred == YTest) % for classifier1,3
